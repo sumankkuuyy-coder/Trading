@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SkyAdmin - Professional HQ</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { 
+            --bg: #0d1117; --card: #161b22; --primary: #58a6ff; 
+            --win: #2ea043; --loss: #f85149; --gold: #d29922; 
+            --purple: #ab7df8; --cyan: #39c5bb; --orange: #ff7b72;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--bg); color: #c9d1d9; overflow-x: hidden; }
+
+        /* Header & Sidebar */
+        .header { background: var(--card); padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; position: sticky; top:0; z-index: 100; }
+        .sidebar { position: fixed; right: -280px; top: 0; width: 280px; height: 100%; background: #1c2128; z-index: 2000; transition: 0.3s; box-shadow: -5px 0 20px rgba(0,0,0,0.5); padding: 20px; }
+        .sidebar.active { right: 0; }
+        .side-item { padding: 15px; border-bottom: 1px solid #30363d; display: flex; flex-direction: column; gap: 5px; }
+        .side-item b { font-size: 14px; color: #8b949e; }
+        .side-item span { font-size: 20px; font-weight: bold; color: var(--cyan); }
+
+        /* User List Home */
+        #userList { padding: 15px; }
+        .user-card { background: var(--card); border: 1px solid #30363d; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
+        .u-info b { font-size: 16px; color: #f0f6fc; }
+        .u-info small { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: #8b949e; }
+        
+        /* Badges */
+        .badge { padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .mode-win { background: rgba(46, 160, 67, 0.15); color: #7ee787; border: 1px solid var(--win); }
+        .mode-loss { background: rgba(248, 81, 73, 0.15); color: #ff7b72; border: 1px solid var(--loss); }
+        .req-alert { background: var(--loss); color: white; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        /* Overlay & Menu Grid */
+        .overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1500; display: none; flex-direction: column; padding: 20px; overflow-y: auto; }
+        .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 25px; }
+        .menu-item { background: #1c2128; border: 1px solid #30363d; border-radius: 18px; padding: 20px 10px; text-align: center; color: #fff; transition: 0.2s; }
+        .menu-item:active { transform: scale(0.95); background: #30363d; }
+        .menu-item i { font-size: 32px; margin-bottom: 12px; display: block; }
+
+        /* Sub Panels */
+        .sub-panel { position: fixed; inset: 0; background: #0d1117; z-index: 1600; display: none; flex-direction: column; padding: 15px; overflow-y: auto; }
+        .data-list { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #30363d; }
+        .btn-act { padding: 12px; border-radius: 10px; border: none; font-weight: bold; color: #fff; width: 100%; margin-top: 10px; cursor: pointer; }
+        
+        /* Toast */
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 25px; border-radius: 30px; z-index: 3000; display: none; background: #30363d; color: #fff; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 style="font-size:18px;"><i class="fa-solid fa-bolt" style="color:var(--gold)"></i> SKY ADMIN HQ</h2>
+        <div style="display:flex; gap:20px; align-items:center;">
+            <i class="fa-solid fa-rotate" onclick="loadUsers()" style="color:var(--primary); font-size:20px;"></i>
+            <i class="fa-solid fa-bars-staggered" onclick="toggleSidebar()" style="color:white; font-size:24px;"></i>
+        </div>
+    </div>
+
+    <!-- SIDEBAR MENU -->
+    <div id="sidebar" class="sidebar">
+        <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:20px;">
+            <h3>DASHBOARD</h3>
+            <i class="fa-solid fa-xmark" onclick="toggleSidebar()" style="font-size:24px; color:var(--loss)"></i>
+        </div>
+        <div class="side-item">
+            <b>TODAY DEPOSIT</b>
+            <span id="statDep">₹0.00</span>
+        </div>
+        <div class="side-item">
+            <b>TODAY WITHDRAWAL</b>
+            <span id="statWit" style="color:var(--loss)">₹0.00</span>
+        </div>
+        <div class="side-item" onclick="openAllRequests()" style="cursor:pointer; background:rgba(88,166,255,0.1); border-radius:10px; margin-top:10px;">
+            <b style="color:var(--primary)">ALL PENDING REQUESTS</b>
+            <p style="font-size:12px;">Check every user request here</p>
+        </div>
+    </div>
+
+    <div id="userList">Loading...</div>
+
+    <!-- USER CONTROL PANEL -->
+    <div id="mainPopup" class="overlay">
+        <div style="display:flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2 id="p-mobile">+91 0000000000</h2>
+                <small id="p-balance" style="color:var(--cyan)">Balance: ₹0</small>
+            </div>
+            <i class="fa-solid fa-circle-xmark" onclick="closePop()" style="color:var(--loss); font-size:35px;"></i>
+        </div>
+
+        <div class="menu-grid">
+            <div class="menu-item" onclick="openSub('dep_req')" style="color:var(--gold)"><i class="fa-solid fa-money-bill-transfer"></i>Deposit</div>
+            <div class="menu-item" onclick="openSub('wit_req')" style="color:var(--primary)"><i class="fa-solid fa-wallet"></i>Withdraw</div>
+            <div class="menu-item" onclick="openSub('dep_hist')" style="color:var(--win)"><i class="fa-solid fa-building-columns"></i>Dep Hist</div>
+            <div class="menu-item" onclick="openSub('wit_hist')" style="color:var(--loss)"><i class="fa-solid fa-clock-rotate-left"></i>Wit Hist</div>
+            <div class="menu-item" onclick="openSub('trade')" style="color:var(--purple)"><i class="fa-solid fa-chart-pie"></i>Trades</div>
+            <div class="menu-item" onclick="openSub('kyc')" style="color:var(--cyan)"><i class="fa-solid fa-address-card"></i>KYC</div>
+            <div class="menu-item" onclick="openSub('wallet')" style="color:lime"><i class="fa-solid fa-sack-dollar"></i>Wallet</div>
+            <div class="menu-item" onclick="openSub('mode')" style="color:orange"><i class="fa-solid fa-wand-magic-sparkles"></i>Luck Mode</div>
+            <div class="menu-item" onclick="openSub('control')" style="color:#ff4b2b; grid-column: span 2;"><i class="fa-solid fa-user-gear"></i>User Settings</div>
+        </div>
+    </div>
+
+    <!-- SUB PANEL -->
+    <div id="subPanel" class="sub-panel">
+        <div style="display:flex; justify-content: space-between; margin-bottom: 20px;">
+            <h3 id="subTitle">DETAILS</h3>
+            <button onclick="closeSub()" style="background:#30363d; color:white; border:none; padding:10px 20px; border-radius:8px;">BACK</button>
+        </div>
+        <div id="subContent"></div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        const API = "https://winter-boat-9f62.sumankkuuyy.workers.dev";
+        let curMob = "";
+
+        // Toggle Sidebar
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch(`${API}/api/admin/users`);
+                const users = await res.json();
+                
+                // Today Stat Calculation (Mock - usually comes from API)
+                let depTotal = 0; let witTotal = 0;
+
+                document.getElementById('userList').innerHTML = users.map(u => {
+                    let modeClass = u.luck_mode === 'WIN' ? 'mode-win' : (u.luck_mode === 'LOSS' ? 'mode-loss' : '');
+                    return `
+                    <div class="user-card" onclick="openPop('${u.mobile}', '${u.balance}', '${u.luck_mode}')">
+                        <div class="u-info">
+                            <b>+91 ${u.mobile}</b>
+                            <small>₹${u.balance} <span class="badge ${modeClass}">${u.luck_mode || 'NORMAL'}</span></small>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            ${u.has_pending ? '<span class="badge req-alert">REQ</span>' : ''}
+                            <i class="fa-solid fa-circle-chevron-right" style="color:#30363d; font-size:22px;"></i>
+                        </div>
+                    </div>`;
+                }).join('');
+                
+                // Update sidebar stats
+                document.getElementById('statDep').innerText = "₹" + depTotal;
+                document.getElementById('statWit').innerText = "₹" + witTotal;
+            } catch (e) { showToast("Network Error!"); }
+        }
+
+        async function openAllRequests() {
+            toggleSidebar();
+            const content = document.getElementById('subContent');
+            document.getElementById('subTitle').innerText = "ALL PENDING REQ";
+            document.getElementById('subPanel').style.display = 'flex';
+            content.innerHTML = "Fetching All User Requests...";
+            
+            const res = await fetch(`${API}/api/admin/get-details?type=all_pending`);
+            const data = await res.json();
+            
+            content.innerHTML = data.length ? data.map(r => `
+                <div class="data-list" style="border-left: 4px solid ${r.type==='DEPOSIT'?'var(--win)':'var(--loss)'}">
+                    <div style="display:flex; justify-content:space-between">
+                        <b>ID: ${r.mobile}</b>
+                        <b style="color:var(--gold)">₹${r.amount}</b>
+                    </div>
+                    <p style="margin:5px 0; font-size:12px; color:#8b949e;">Type: ${r.type} | UTR: ${r.utr || 'N/A'}</p>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-act" style="background:var(--win)" onclick="handle('${r.id}','APPROVE',${r.amount},'${r.type}','${r.mobile}')">APPROVE</button>
+                        <button class="btn-act" style="background:var(--loss)" onclick="handle('${r.id}','REJECT',${r.amount},'${r.type}','${r.mobile}')">REJECT</button>
+                    </div>
+                </div>`).join('') : "<p style='text-align:center;'>No Pending Requests!</p>";
+        }
+
+        function openPop(mob, bal, mode) {
+            curMob = mob;
+            document.getElementById('p-mobile').innerText = "+91 " + mob;
+            document.getElementById('p-balance').innerText = "Wallet Balance: ₹" + bal;
+            document.getElementById('mainPopup').style.display = 'flex';
+        }
+
+        async function openSub(type) {
+            const content = document.getElementById('subContent');
+            document.getElementById('subTitle').innerText = type.toUpperCase();
+            document.getElementById('subPanel').style.display = 'flex';
+            content.innerHTML = "Loading...";
+
+            const res = await fetch(`${API}/api/admin/get-details?mobile=${curMob}&type=${type}`);
+            const data = await res.json();
+
+            if (type === 'kyc') {
+                const isApp = data.kyc_status === 'APPROVED';
+                content.innerHTML = `<div class="data-list"><p>Bank: <b>${data.bank_name || 'N/A'}</b></p><p>Acc: <b>${data.acc_no || 'N/A'}</b></p><p>IFSC: <b>${data.ifsc || 'N/A'}</b></p>${isApp ? '<div class="btn-act" style="background:var(--win); text-align:center">✅ APPROVED</div>' : `<button class="btn-act" style="background:var(--win)" onclick="updateField('kyc_status','APPROVED')">APPROVE KYC</button>`}<button class="btn-act" style="background:var(--loss)" onclick="removeKyc()">DELETE BANK DATA</button></div>`;
+            } else if (type === 'wallet') {
+                content.innerHTML = `<div class="data-list"><input type="number" id="newBal" placeholder="Enter New Balance"><button class="btn-act" style="background:var(--primary)" onclick="updateField('balance', document.getElementById('newBal').value)">UPDATE WALLET</button></div>`;
+            } else if (type === 'mode') {
+                content.innerHTML = `<button class="btn-act" style="background:var(--win); padding:20px;" onclick="updateField('luck_mode','WIN')">FORCE WIN</button><button class="btn-act" style="background:var(--loss); padding:20px;" onclick="updateField('luck_mode','LOSS')">FORCE LOSS</button><button class="btn-act" style="background:#333; padding:20px;" onclick="updateField('luck_mode','NORMAL')">NORMAL ALGO</button>`;
+            } else if (type === 'dep_req' || type === 'wit_req') {
+                content.innerHTML = data.length ? data.map(r => `<div class="data-list"><p>₹${r.amount} (${r.type})</p><div style="display:flex;gap:10px;"><button class="btn-act" style="background:var(--win)" onclick="handle('${r.id}','APPROVE',${r.amount},'${r.type}','${curMob}')">APPROVE</button><button class="btn-act" style="background:var(--loss)" onclick="handle('${r.id}','REJECT',${r.amount},'${r.type}','${curMob}')">REJECT</button></div></div>`).join('') : "No Requests";
+            } else {
+                content.innerHTML = data.length ? data.map(h => `<div class="data-list"><p>${h.type}: ₹${h.amount}</p><small>${h.date} - ${h.status}</small></div>`).join('') : "History Empty";
+            }
+        }
+
+        async function handle(id, act, amt, type, mob) {
+            showToast("Processing...");
+            await fetch(`${API}/api/admin/handle-request`, { method: 'POST', body: JSON.stringify({ id, action: act, mobile: mob, amount: amt, type }) });
+            showToast("Action Success!"); closeSub(); loadUsers();
+        }
+
+        async function updateField(f, v) {
+            showToast("Updating...");
+            await fetch(`${API}/api/admin/update`, { method: 'POST', body: JSON.stringify({ mobile: curMob, field: f, value: v }) });
+            showToast("Updated!"); closeSub(); loadUsers();
+        }
+
+        async function removeKyc() {
+            if(!confirm("Are you sure?")) return;
+            const fields = ['acc_no', 'ifsc', 'bank_name', 'kyc_status'];
+            for(let field of fields) { await fetch(`${API}/api/admin/update`, { method: 'POST', body: JSON.stringify({ mobile: curMob, field, value: null }) }); }
+            showToast("Data Removed!"); closeSub();
+        }
+
+        function closePop() { document.getElementById('mainPopup').style.display='none'; }
+        function closeSub() { document.getElementById('subPanel').style.display='none'; }
+        function showToast(m) { const t = document.getElementById('toast'); t.innerText = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2000); }
+        window.onload = loadUsers;
+    </script>
+</body>
+</html>
+
